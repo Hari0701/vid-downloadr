@@ -78,7 +78,7 @@ To get started with Media Fetcher, follow these steps:
    Open your terminal or command prompt and run the following command to clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/vid-downloadr.git
+   git clone https://github.com/Hari0701/vid-downloadr.git
    ```
 
 2. **Navigate to the Project Directory:**
