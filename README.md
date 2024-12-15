@@ -107,10 +107,6 @@ To get started with Media Fetcher, follow these steps:
   python main.py
   ```
 
-- **Access the Interface:**
-
-  Open your web browser and navigate to `http://localhost:8000` to access the Media Fetcher interface.
-
 ### Troubleshooting
 
 - If you encounter any issues during setup, ensure all dependencies are installed correctly and check for any error messages in the terminal.
