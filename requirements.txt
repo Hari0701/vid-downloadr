@@ -1,7 +1,0 @@
-beautifulsoup4
-customtkinter
-instaloader
-requests
-yt-dlp
-urllib3
-
