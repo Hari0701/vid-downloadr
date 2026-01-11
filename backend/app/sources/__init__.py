@@ -5,10 +5,12 @@ To add a site: write a Source subclass in this package and add it to SOURCES.
 from __future__ import annotations
 
 from .base import DownloadContext, DownloadError, Source
+from .instagram import InstagramSource
 from .ytdlp_source import YouTubeSource
 
 SOURCES: list[Source] = [
     YouTubeSource(),
+    InstagramSource(),
 ]
 
 
