@@ -6,11 +6,13 @@ from __future__ import annotations
 
 from .base import DownloadContext, DownloadError, Source
 from .instagram import InstagramSource
+from .twitter import TwitterSource
 from .ytdlp_source import YouTubeSource
 
 SOURCES: list[Source] = [
     YouTubeSource(),
     InstagramSource(),
+    TwitterSource(),
 ]
 
 
