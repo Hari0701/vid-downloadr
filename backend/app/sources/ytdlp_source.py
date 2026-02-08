@@ -147,6 +147,23 @@ class YouTubeSource(YtDlpSource):
     note = "Hosted servers are often bot-checked by YouTube; set COOKIES_FILE or PROXY if you see failures."
 
 
+class GenericSource(YtDlpSource):
+    """Catch-all. yt-dlp supports well over a thousand sites.
+
+    This is the expansion path: a site yt-dlp already handles works here with no
+    code at all. Write a dedicated Source only when you need custom behaviour.
+    """
+
+    name = "generic"
+    label = "Other (yt-dlp)"
+    domains = ()
+    priority = 1000
+    note = "Best-effort support for any site yt-dlp recognises."
+
+    def matches(self, url: str) -> bool:
+        return settings.enable_generic_source
+
+
 def _friendly(exc: Exception) -> str:
     """Turn yt-dlp's noisy errors into something worth showing a user."""
     text = str(exc)
