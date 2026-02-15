@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .jobs import manager
+from .ratelimit import RateLimitMiddleware
 from .routers import jobs as jobs_router
 from .routers import sources as sources_router
 
@@ -36,6 +37,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
