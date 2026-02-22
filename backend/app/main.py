@@ -20,13 +20,29 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def _reaper() -> None:
+    """Delete expired downloads on a loop so disk use stays bounded."""
+    while True:
+        try:
+            await asyncio.sleep(settings.cleanup_interval_seconds)
+            removed = await asyncio.to_thread(manager.reap)
+            if removed:
+                logger.info("Reaped %d expired job(s)", removed)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - the reaper must never die
+            logger.exception("Cleanup pass failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     manager.bind_loop(asyncio.get_running_loop())
+    task = asyncio.create_task(_reaper())
     logger.info("Serving downloads from %s", settings.download_dir)
     try:
         yield
     finally:
+        task.cancel()
         manager.shutdown()
 
 
