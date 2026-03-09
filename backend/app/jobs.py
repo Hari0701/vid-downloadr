@@ -46,22 +46,33 @@ class JobManager:
     def __init__(self) -> None:
         self._jobs: dict[str, JobRecord] = {}
         self._lock = threading.Lock()
-        self._pool = ThreadPoolExecutor(
-            max_workers=settings.max_concurrent_downloads, thread_name_prefix="download"
-        )
+        self._pool: ThreadPoolExecutor | None = None
         self._subscribers: dict[str, set[asyncio.Queue]] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
 
     # -- lifecycle -------------------------------------------------------
 
-    def bind_loop(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Remember the API event loop so worker threads can publish into it."""
+    def _new_pool(self) -> ThreadPoolExecutor:
+        return ThreadPoolExecutor(
+            max_workers=settings.max_concurrent_downloads, thread_name_prefix="download"
+        )
+
+    def start(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Bind the API event loop and open a fresh worker pool.
+
+        A pool cannot be reused after shutdown, so this rebuilds it. That keeps
+        the manager restartable within one process, which the test suite relies
+        on and which makes an in-place reload safe.
+        """
         self._loop = loop
+        self._pool = self._new_pool()
 
     def shutdown(self) -> None:
         for record in list(self._jobs.values()):
             record.cancel_event.set()
-        self._pool.shutdown(wait=False, cancel_futures=True)
+        if self._pool is not None:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+            self._pool = None
 
     # -- creation --------------------------------------------------------
 
@@ -69,6 +80,9 @@ class JobManager:
         source = resolve(url)
         if source is None:
             raise ValueError("No downloader knows how to handle that link.")
+
+        if self._pool is None:  # not started, or already shutting down
+            raise RuntimeError("The download service is not accepting jobs right now.")
 
         job_id = uuid.uuid4().hex
         work_dir = settings.download_dir / job_id

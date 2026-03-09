@@ -36,7 +36,7 @@ async def _reaper() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    manager.bind_loop(asyncio.get_running_loop())
+    manager.start(asyncio.get_running_loop())
     task = asyncio.create_task(_reaper())
     logger.info("Serving downloads from %s", settings.download_dir)
     try:

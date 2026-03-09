@@ -23,6 +23,8 @@ def create_job(request: DownloadRequest) -> Job:
         return manager.create(request.url, request.options)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/{job_id}", response_model=Job)
