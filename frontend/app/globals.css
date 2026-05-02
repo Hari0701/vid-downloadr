@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #07080c;
+  --color-panel: #0e1118;
+  --color-edge: #1d2230;
+  --color-edge-bright: #2c3346;
+  --color-accent: #6366f1;
+  --color-accent-soft: #a5b4fc;
+  --color-muted: #8b93a7;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-surface);
+  min-height: 100dvh;
+  color: #e8eaf2;
+  -webkit-font-smoothing: antialiased;
+}
+
+.progress-fill {
+  transition: width 300ms ease-out;
+}
