@@ -22,6 +22,60 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Ambient glow behind the hero. Fixed so it does not scroll with content. */
+.aurora {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(45rem 30rem at 20% -5%, rgba(99, 102, 241, 0.22), transparent 65%),
+    radial-gradient(40rem 28rem at 85% 5%, rgba(217, 70, 239, 0.13), transparent 60%),
+    radial-gradient(35rem 25rem at 50% 40%, rgba(56, 189, 248, 0.07), transparent 60%);
+}
+
+/* Faint grid, masked so it fades out down the page. */
+.grid-lines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+
+.gradient-text {
+  background: linear-gradient(120deg, #fff 20%, var(--color-accent-soft) 60%, #f0abfc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .progress-fill {
   transition: width 300ms ease-out;
+}
+
+/* Indeterminate shimmer for the queued/starting phase, where there is no
+   meaningful percentage yet. */
+@keyframes sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 33%;
+  background: linear-gradient(90deg, transparent, rgba(165, 180, 252, 0.65), transparent);
+  animation: sweep 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after { animation: none; }
+  .progress-fill { transition: none; }
+  html { scroll-behavior: auto; }
 }

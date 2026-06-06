@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import DownloadForm from "@/components/DownloadForm";
 import JobCard from "@/components/JobCard";
+import { Features, Footer, Header, Hero } from "@/components/SiteChrome";
 import {
   DownloadOptions,
   Job,
@@ -73,8 +74,12 @@ export default function Home() {
 
   return (
     <>
-      <main className="relative z-10 mx-auto w-full max-w-3xl px-5 py-16">
-        <h1 className="mb-6 text-3xl font-semibold tracking-tight">vid-downloadr</h1>
+      <div className="aurora" aria-hidden />
+      <div className="grid-lines" aria-hidden />
+      <Header />
+
+      <main className="relative z-10 mx-auto w-full max-w-3xl px-5 pb-16">
+        <Hero />
 
         {loadError ? (
           <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
@@ -115,6 +120,8 @@ export default function Home() {
           </section>
         )}
 
+        <Features />
+        <Footer />
       </main>
     </>
   );
