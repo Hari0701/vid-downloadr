@@ -62,6 +62,15 @@ async def job_events(job_id: str, request: Request) -> StreamingResponse:
                 try:
                     update = await asyncio.wait_for(queue.get(), timeout=15)
                 except asyncio.TimeoutError:
+                    # Re-read the job rather than trusting the pub/sub alone, so a
+                    # dropped notification can never strand the client on a stream
+                    # that will never close.
+                    current = manager.get(job_id)
+                    if current is None:
+                        return
+                    if current.status in FINAL:
+                        yield _sse(current)
+                        return
                     # Comment frame keeps proxies from closing an idle stream.
                     yield ": keepalive\n\n"
                     continue
