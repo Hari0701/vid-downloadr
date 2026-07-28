@@ -1,122 +1,202 @@
-# Media Downloader
+# vid-downloadr
 
-A powerful, user-friendly application for downloading media content from popular social platforms.
+Open-source, self-hostable media downloader. Paste a link, pick a format, get the file.
 
-## Table of Contents
+A **Next.js** frontend over a **FastAPI** backend. Sources are plugins: YouTube, Instagram,
+Twitter/X and Pinterest ship in the box, and a catch-all yt-dlp source covers the thousand-plus
+other sites yt-dlp recognises.
 
-- [Overview](#overview)
-- [Usage Guide](#usage-guide)
-- [Advanced Features](#advanced-features)
-- [Troubleshooting](#troubleshooting)
-- [Setup](#setup)
-- [Disclaimer](#disclaimer)
+---
 
+## Contents
 
-## Overview
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [How it works](#how-it-works)
+- [Adding a source](#adding-a-source)
+- [API](#api)
+- [Deployment](#deployment)
+- [Running it honestly](#running-it-honestly)
+- [License](#license)
 
-The Media Downloader is a sophisticated, cross-platform application designed to streamline the process of downloading media content from various Media Downloader platforms. Built with Python and featuring a modern, intuitive GUI, this toolkit empowers users to easily archive and manage their favorite online content.
+---
 
+## Quick start
 
-## Usage Guide
+### Docker (recommended)
 
-### Adding Content:
-
-- Paste the media URL into the input field.
-- Click "Add" and provide a custom name if desired.
-- (Downloading instagram media requires being logged in with the Instagram Login button)
-
-### Customizing Save Location:
-
-- Access the file browser via "Manage Files".
-- Navigate and set your preferred download directory.
-
-### Monitoring Downloads:
-
-- Track overall progress via the status label and progress bar.
-- Check individual download statuses in the download list.
-
-## Advanced Features
-
-### YouTube Enhancements
-
-- Quality selection (360p to 1080p)
-- Playlist support
-- Audio extraction capability
-
-### Instagram Capabilities
-
-- Support for posts, reels, and carousels
-- Caption preservation
-
-### Twitter Integration
-
-- Download images and videos from tweets
-
-### Pinterest Functionality
-
-- High-quality image retrieval from pins and boards
-- Automated file naming based on pin content
-
-## Setup
-
-To get started with Media Fetcher, follow these steps:
-
-### Prerequisites
-
-- **Python 3.x**: Ensure you have Python 3.x installed on your system. You can download it from [python.org](https://www.python.org/).
-- **Git**: Install Git if you haven't already, to clone the repository. Download it from [git-scm.com](https://git-scm.com/).
-- **FFmpeg**: Install FFmpeg for media processing. You can install it using the following command (for Windows users with winget):
-
-  ```bash
-  winget install "FFmpeg (Essentials Build)"
-  ```
-
-### Installation
-
-1. **Clone the Repository:**
-
-   Open your terminal or command prompt and run the following command to clone the repository:
-
-   ```bash
-   git clone https://github.com/Hari0701/vid-downloadr.git
-   ```
-
-2. **Navigate to the Project Directory:**
-
-   Change into the project directory:
-
-   ```bash
-   cd vid-downloadr
-   ```
-
-3. **Install Dependencies:**
-
-   Use pip to install the required Python packages:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### Running the Application
-
-- **Start the Application:**
-
-  Run the application using the following command:
-
-  ```bash
-  python main.py
-  ```
-
-### Troubleshooting
-
-- If you encounter any issues during setup, ensure all dependencies are installed correctly and check for any error messages in the terminal.
-
-This setup guide provides a clear path for users to install and configure your application, ensuring they can get it up and running smoothly. Adjust the instructions as needed to fit the specifics of your project.
-
-## Disclaimer
-```text
-    The Media Downloader Toolkit is intended for personal use only. 
-    Users are responsible for adhering to the terms of service of the respective platforms and all applicable copyright laws. 
-    The developers assume no liability for misuse of this software.
-    Your Instagram account may be banned if you use this tool for unauthorized purposes or too much usage it is always recommended to use it with caution and create a new account for testing purposes.'
+```bash
+docker compose up --build
 ```
+
+The app is on <http://localhost:3000>; the API is on <http://localhost:8000> and its interactive
+docs are at `/docs`.
+
+### Local development
+
+The backend needs Python 3.11+ and `ffmpeg` on PATH (yt-dlp uses it to mux video with audio and to
+extract audio).
+
+```bash
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+PYTHONPATH=. .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+cd frontend
+npm install && npm run dev
+```
+
+Next proxies `/api/*` to the backend, so the browser only ever talks to one origin. Point it
+elsewhere with `BACKEND_URL`.
+
+Tests:
+
+```bash
+cd backend && .venv/bin/python -m pytest
+```
+
+They are network-free — a stub source stands in for the real downloaders.
+
+---
+
+## Configuration
+
+Every value is an environment variable on the backend, and every one has a default. See
+`backend/.env.example`.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `DOWNLOAD_DIR` | system temp | Where finished files wait to be collected |
+| `FILE_TTL_SECONDS` | `3600` | How long a finished file survives before deletion |
+| `MAX_CONCURRENT_DOWNLOADS` | `3` | Worker threads doing real downloading |
+| `MAX_FILESIZE_MB` | `2048` | Hard per-download ceiling |
+| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | `20` / `300` | Per-IP limit on the expensive endpoints |
+| `ALLOWED_ORIGINS` | `http://localhost:3000` | CORS allow-list |
+| `ENABLE_GENERIC_SOURCE` | `true` | Whether unknown links fall through to yt-dlp |
+| `PROXY` | — | Outbound proxy for all downloaders |
+| `COOKIES_FILE` | — | Netscape `cookies.txt` handed to yt-dlp |
+| `INSTAGRAM_USERNAME` / `INSTAGRAM_SESSION_FILE` | — | Optional operator session, see below |
+
+### About Instagram credentials
+
+This service **never asks a visitor to log in**, and no password reaches the API. By default the
+Instagram source runs anonymously, which reaches public posts, reels and carousels.
+
+An operator running a private instance may create a session on their own machine
+(`instaloader --login=<user>`) and point `INSTAGRAM_SESSION_FILE` at it. That session is then used
+for every request on that instance — so only do it on an instance you control and trust.
+
+---
+
+## How it works
+
+```
+Browser ──POST /api/jobs──▶ FastAPI ──▶ thread pool ──▶ Source plugin ──▶ temp dir
+   │                            │                                            │
+   └──GET .../events (SSE)◀─────┴── progress published from the worker        │
+   └──GET .../files/{id} ◀───────────────────────────────────────────────────┘
+                                        reaper deletes on a TTL
+```
+
+- A download is a **job**. `POST /api/jobs` returns immediately with an id; the work happens on a
+  thread pool bounded by `MAX_CONCURRENT_DOWNLOADS`.
+- Progress streams over **server-sent events**. The client falls back to polling if SSE cannot get
+  through a proxy, and the stream re-checks job state on every keepalive so it can never strand a
+  client on a job that already finished.
+- Job state is deliberately **in-process**. Jobs are short-lived and their output is a local temp
+  file, so there is nothing worth persisting. Running more than one replica means swapping
+  `app/jobs.py` for Redis and a real queue — the public surface is designed to survive that.
+- A background reaper deletes expired jobs and sweeps orphaned directories left by a crash.
+
+---
+
+## Adding a source
+
+Adding a site is one file. Subclass `Source`, implement `download`, register it:
+
+```python
+# backend/app/sources/example.py
+from pathlib import Path
+from ..schemas import DownloadOptions
+from .base import DownloadContext, Source
+from .http import stream_to_file
+
+
+class ExampleSource(Source):
+    name = "example"
+    label = "Example"
+    domains = ("example.com",)
+    supports_info = True
+    priority = 20  # lower runs first; the yt-dlp catch-all sits at 1000
+
+    def download(self, url: str, options: DownloadOptions, ctx: DownloadContext) -> list[Path]:
+        return [stream_to_file(find_media_url(url), ctx.work_dir / "example.mp4", ctx)]
+```
+
+Add it to `SOURCES` in `backend/app/sources/__init__.py`. That is the whole change: the frontend
+reads `/api/sources` and builds its controls from the capability flags each source advertises, so a
+source that sets `supports_audio_only` gets the audio toggle without any frontend edit.
+
+If the site is already supported by yt-dlp, you do not need a source at all — the generic catch-all
+handles it.
+
+---
+
+## API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Liveness and effective limits |
+| `GET` | `/api/sources` | Registered sources and their capabilities |
+| `POST` | `/api/info` | Metadata preview without downloading |
+| `POST` | `/api/jobs` | Start a download; returns `202` and a job |
+| `GET` | `/api/jobs/{id}` | Current job state |
+| `GET` | `/api/jobs/{id}/events` | SSE progress stream |
+| `GET` | `/api/jobs/{id}/files/{file_id}` | Download a finished file |
+| `DELETE` | `/api/jobs/{id}` | Cancel a running job |
+
+Full OpenAPI schema at `/docs`.
+
+---
+
+## Deployment
+
+`docker compose up -d` behind a TLS-terminating reverse proxy is the whole story for a single box.
+Two things to get right:
+
+**Disable buffering on the SSE endpoint.** The backend already sends `X-Accel-Buffering: no`, but
+nginx needs telling too:
+
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+}
+```
+
+**Expect platforms to block your server.** YouTube and Instagram treat datacenter IPs as hostile and
+will bot-check or rate-limit them, sometimes immediately. This is not something code fixes — set
+`PROXY` to a residential proxy and/or supply `COOKIES_FILE`, and size your expectations
+accordingly. The app surfaces these as readable errors rather than pretending they did not happen.
+
+Splitting the tiers (frontend on Vercel, backend on a container host) works too: set `BACKEND_URL`
+on the frontend and add its origin to `ALLOWED_ORIGINS` on the backend. The backend needs a writable
+disk and is not a good fit for serverless functions — downloads outlive typical function timeouts.
+
+---
+
+## Running it honestly
+
+This tool downloads media you point it at. That does not make every download lawful or fair.
+Respect each platform's terms of service, copyright, and the people who made the thing you are
+downloading. If you host a public instance, you are responsible for what it is used for — rate
+limits and a short file TTL are in the box for a reason, and they are a floor, not a policy.
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE).
