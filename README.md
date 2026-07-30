@@ -54,7 +54,9 @@ elsewhere with `BACKEND_URL`.
 Tests:
 
 ```bash
-cd backend && .venv/bin/python -m pytest
+cd backend
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
 ```
 
 They are network-free — a stub source stands in for the real downloaders.
