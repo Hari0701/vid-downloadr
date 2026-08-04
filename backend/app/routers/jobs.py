@@ -5,7 +5,7 @@ import asyncio
 import json
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
 from ..jobs import manager
@@ -42,7 +42,7 @@ def cancel_job(job_id: str) -> None:
 
 
 @router.get("/{job_id}/events")
-async def job_events(job_id: str, request: Request) -> StreamingResponse:
+async def job_events(job_id: str) -> StreamingResponse:
     """Server-sent events carrying the full job object on every change."""
     job = manager.get(job_id)
     if job is None:
@@ -53,12 +53,29 @@ async def job_events(job_id: str, request: Request) -> StreamingResponse:
     async def stream():
         try:
             # Emit current state immediately so a late subscriber is never blank.
-            yield _sse(job)
-            if job.status in FINAL:
+            # This must be a snapshot: manager.get returns the live job, which the
+            # worker thread keeps mutating. Testing the live object after the yield
+            # would let a job that finished in the meantime look "already final"
+            # and close the stream without ever emitting its terminal event.
+            snapshot = job.model_copy(deep=True)
+            yield _sse(snapshot)
+            if snapshot.status in FINAL:
+                return
+
+            # Completion may have landed between subscribe() and now, in which
+            # case it is in neither the snapshot nor the queue. Re-read once.
+            current = manager.get(job_id)
+            if current is None:
+                return
+            if current.status in FINAL:
+                yield _sse(current)
                 return
             while True:
-                if await request.is_disconnected():
-                    return
+                # No is_disconnected() poll here: it reports a disconnect as soon
+                # as the request body is consumed, which would close the stream
+                # on a job that is still running. Starlette cancels this
+                # generator when the client actually goes away, and the finally
+                # block below unsubscribes.
                 try:
                     update = await asyncio.wait_for(queue.get(), timeout=15)
                 except asyncio.TimeoutError:

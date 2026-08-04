@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -100,6 +101,24 @@ def test_download_lifecycle(client):
     served = client.get(job["files"][0]["download_url"])
     assert served.status_code == 200
     assert served.content == b"hello"
+
+
+def test_stream_delivers_a_terminal_event_for_an_already_finished_job(client):
+    """Subscribing after the job finished must still yield a terminal event.
+
+    Regression test: the endpoint used to hold a live reference to the job, so a
+    job that completed between the first emit and the status check closed the
+    stream with no terminal event and left the client hanging.
+    """
+    job_id = client.post("/api/jobs", json={"url": "https://stub.test/ok"}).json()["id"]
+    # Let the worker finish before anyone subscribes.
+    for _ in range(100):
+        if client.get(f"/api/jobs/{job_id}").json()["status"] == "completed":
+            break
+        time.sleep(0.01)
+
+    job = wait_for_final(client, job_id)
+    assert job["status"] == "completed"
 
 
 def test_failure_is_reported_to_the_client(client):
