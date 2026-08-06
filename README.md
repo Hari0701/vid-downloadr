@@ -51,6 +51,10 @@ npm install && npm run dev
 Next proxies `/api/*` to the backend, so the browser only ever talks to one origin. Point it
 elsewhere with `BACKEND_URL`.
 
+Note that Next resolves rewrites at **build** time and bakes them into the route manifest, so
+`BACKEND_URL` has to be set when you build the frontend, not when you start it. The frontend image
+takes it as a build arg for exactly this reason.
+
 Tests:
 
 ```bash
