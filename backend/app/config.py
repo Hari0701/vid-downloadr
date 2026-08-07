@@ -70,6 +70,11 @@ class Settings:
     instagram_username: str | None = field(
         default_factory=lambda: os.environ.get("INSTAGRAM_USERNAME") or None
     )
+    # Operator-only fallback when no session file exists: the backend logs in
+    # once at startup and caches the session. Never populated from a request.
+    instagram_password: str | None = field(
+        default_factory=lambda: os.environ.get("INSTAGRAM_PASSWORD") or None
+    )
     # Allow the catch-all yt-dlp source to attempt any URL.
     enable_generic_source: bool = field(
         default_factory=lambda: _env_bool("ENABLE_GENERIC_SOURCE", True)

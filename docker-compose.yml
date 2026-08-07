@@ -13,6 +13,7 @@ services:
       COOKIES_FILE: ${COOKIES_FILE:-}
       INSTAGRAM_USERNAME: ${INSTAGRAM_USERNAME:-}
       INSTAGRAM_SESSION_FILE: ${INSTAGRAM_SESSION_FILE:-}
+      INSTAGRAM_PASSWORD: ${INSTAGRAM_PASSWORD:-}
     volumes:
       - downloads:/data/downloads
     restart: unless-stopped

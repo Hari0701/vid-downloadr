@@ -1,11 +1,12 @@
 """Instagram posts, reels and carousels via instaloader.
 
 Deliberate design note: this service never asks a visitor for Instagram
-credentials. It runs anonymously by default, but Instagram has largely stopped serving
-anonymous metadata, so in practice an operator session is required.
-An operator may optionally point INSTAGRAM_SESSION_FILE at a session created
-offline on their own machine (`instaloader --login=<user>`), which is used for
-every request. There is no per-user login and no password ever reaches this API.
+credentials, and no visitor password ever reaches this API.
+
+Instagram has stopped serving anonymous metadata, so the operator of an instance
+configures one login for the whole instance: either a session file created
+offline (`instaloader --login=<user>`) or a username/password pair in the
+environment, which is used once at startup and then cached as a session.
 """
 from __future__ import annotations
 
@@ -32,30 +33,65 @@ class InstagramSource(Source):
     requires_operator_credentials = True
     priority = 20
     note = (
-        "Instagram now refuses anonymous requests, so this source needs an "
-        "operator-configured session. Visitors are never asked to log in."
+        "Instagram now refuses anonymous requests, so this instance needs an "
+        "operator-configured login. Visitors are never asked for credentials."
     )
 
     def __init__(self) -> None:
         self._loader: instaloader.Instaloader | None = None
+        self._authenticated = False
 
     def _get_loader(self) -> instaloader.Instaloader:
+        """Build the loader once, logged in if the operator configured it.
+
+        Two ways in, both operator-only and both resolved here at startup rather
+        than per request:
+
+        1. INSTAGRAM_SESSION_FILE — a session created offline, nothing secret in
+           the environment. Preferred.
+        2. INSTAGRAM_USERNAME + INSTAGRAM_PASSWORD — log in directly, and cache
+           the resulting session to INSTAGRAM_SESSION_FILE if that path is set,
+           so a restart does not trigger a fresh login.
+        """
         if self._loader is not None:
             return self._loader
+
         loader = instaloader.Instaloader(
             quiet=True,
             download_comments=False,
             save_metadata=False,
             compress_json=False,
         )
-        if settings.instagram_session_file and settings.instagram_username:
+        username = settings.instagram_username
+        session_file = settings.instagram_session_file
+
+        if username and session_file and Path(session_file).exists():
             try:
-                loader.load_session_from_file(
-                    settings.instagram_username, settings.instagram_session_file
-                )
-                logger.info("Loaded Instagram session for %s", settings.instagram_username)
+                loader.load_session_from_file(username, session_file)
+                logger.info("Loaded Instagram session for %s", username)
+                self._authenticated = True
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Could not load Instagram session, staying anonymous: %s", exc)
+                logger.warning("Could not load the Instagram session file: %s", exc)
+
+        if not self._authenticated and username and settings.instagram_password:
+            try:
+                loader.login(username, settings.instagram_password)
+                logger.info("Logged in to Instagram as %s", username)
+                self._authenticated = True
+                if session_file:
+                    # Cache it so a restart reuses the session instead of
+                    # logging in again, which is what gets accounts flagged.
+                    try:
+                        Path(session_file).parent.mkdir(parents=True, exist_ok=True)
+                        loader.save_session_to_file(session_file)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Could not cache the Instagram session: %s", exc)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Instagram login failed, continuing anonymously: %s", exc)
+
+        if not self._authenticated:
+            logger.info("Instagram is running anonymously; most requests will be refused")
+
         self._loader = loader
         return loader
 
@@ -68,6 +104,23 @@ class InstagramSource(Source):
                 if index + 1 < len(parts):
                     return parts[index + 1]
         return None
+
+    def is_configured(self) -> bool:
+        """Whether this instance has an Instagram login to work with."""
+        if not settings.instagram_username:
+            return False
+        return bool(settings.instagram_password) or bool(
+            settings.instagram_session_file and Path(settings.instagram_session_file).exists()
+        )
+
+    def setup_hint(self) -> str | None:
+        if self.is_configured():
+            return None
+        return (
+            "This instance has no Instagram login configured, so Instagram links "
+            "will fail. The operator sets INSTAGRAM_USERNAME with either "
+            "INSTAGRAM_PASSWORD or INSTAGRAM_SESSION_FILE."
+        )
 
     def _post(self, url: str) -> instaloader.Post:
         shortcode = self._shortcode(url)
