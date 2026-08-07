@@ -1,7 +1,8 @@
 """Instagram posts, reels and carousels via instaloader.
 
 Deliberate design note: this service never asks a visitor for Instagram
-credentials. It runs anonymously by default, which reaches public content only.
+credentials. It runs anonymously by default, but Instagram has largely stopped serving
+anonymous metadata, so in practice an operator session is required.
 An operator may optionally point INSTAGRAM_SESSION_FILE at a session created
 offline on their own machine (`instaloader --login=<user>`), which is used for
 every request. There is no per-user login and no password ever reaches this API.
@@ -27,11 +28,12 @@ class InstagramSource(Source):
     label = "Instagram"
     domains = ("instagram.com",)
     supports_info = True
-    requires_operator_credentials = False
+    # Advertised to the frontend so the UI can warn before someone pastes a link.
+    requires_operator_credentials = True
     priority = 20
     note = (
-        "Public posts, reels and carousels. Private content needs an operator-provided "
-        "session; this service never asks visitors to log in."
+        "Instagram now refuses anonymous requests, so this source needs an "
+        "operator-configured session. Visitors are never asked to log in."
     )
 
     def __init__(self) -> None:
@@ -115,10 +117,18 @@ class InstagramSource(Source):
 
 def _friendly(exc: Exception) -> str:
     lowered = str(exc).lower()
-    if "login" in lowered or "private" in lowered or "not accessible" in lowered:
-        return "That post is private or requires a logged-in account."
-    if "401" in lowered or "403" in lowered or "rate" in lowered or "429" in lowered:
-        return "Instagram rate-limited this server. Try again in a few minutes."
     if "not exist" in lowered or "404" in lowered:
         return "That post does not exist."
+    if "401" in lowered or "403" in lowered or "rate" in lowered or "429" in lowered:
+        return "Instagram rate-limited this server. Try again in a few minutes."
+    if "login" in lowered or "private" in lowered or "not accessible" in lowered:
+        return "That post is private or requires a logged-in account."
+    # Instagram now refuses anonymous metadata fetches almost everywhere, which
+    # instaloader surfaces as a generic bad response. Say what actually has to
+    # happen instead of blaming the link.
+    if "fetching" in lowered and "failed" in lowered:
+        return (
+            "Instagram refused an anonymous request. This instance needs an "
+            "operator-configured Instagram session to fetch posts."
+        )
     return "Instagram refused the request."
