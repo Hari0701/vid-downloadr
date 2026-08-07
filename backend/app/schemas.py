@@ -105,3 +105,7 @@ class SourceDescriptor(BaseModel):
     supports_info: bool = False
     requires_operator_credentials: bool = False
     note: str | None = None
+    # False when the instance is missing something the source needs (a login,
+    # a cookie file). The UI surfaces setup_hint instead of letting a user try.
+    configured: bool = True
+    setup_hint: str | None = None

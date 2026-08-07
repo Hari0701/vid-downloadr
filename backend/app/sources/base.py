@@ -53,6 +53,18 @@ class Source(ABC):
         host = re.sub(r"^www\.", "", host)
         return any(host == d or host.endswith("." + d) for d in self.domains)
 
+    def is_configured(self) -> bool:
+        """Whether this source can actually work on this instance right now.
+
+        Sources needing operator credentials override this so the UI can say so
+        up front instead of letting someone paste a link and wait for a failure.
+        """
+        return True
+
+    def setup_hint(self) -> str | None:
+        """What the operator must do, when is_configured() is False."""
+        return None
+
     def fetch_info(self, url: str) -> MediaInfo | None:
         """Cheap metadata probe. Return None when the source cannot preview."""
         return None
@@ -72,4 +84,6 @@ class Source(ABC):
             supports_info=self.supports_info,
             requires_operator_credentials=self.requires_operator_credentials,
             note=self.note,
+            configured=self.is_configured(),
+            setup_hint=self.setup_hint(),
         )
