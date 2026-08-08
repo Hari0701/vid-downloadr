@@ -40,7 +40,7 @@ export function Header() {
             API
           </a>
           <a
-            href="https://github.com/"
+            href="https://github.com/Hari0701/vid-downloadr"
             target="_blank"
             rel="noreferrer noopener"
             className="rounded-lg border border-edge-bright px-3 py-1.5 text-xs text-white/80 transition hover:border-accent hover:text-white"

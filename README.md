@@ -26,6 +26,10 @@ other sites yt-dlp recognises.
 ### Docker (recommended)
 
 ```bash
+git clone https://github.com/Hari0701/vid-downloadr.git && cd vid-downloadr
+```
+
+```bash
 docker compose up --build
 ```
 

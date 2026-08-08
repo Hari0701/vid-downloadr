@@ -231,6 +231,7 @@ export default function DownloadForm({ sources, onSubmit }: Props) {
                   onChange={(event) =>
                     setOptions({ ...options, audio_only: event.target.checked })
                   }
+                  aria-label="Audio only"
                   className="size-4 accent-[var(--color-accent)]"
                 />
                 <span className="text-white/70">Audio only</span>

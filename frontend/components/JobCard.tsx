@@ -115,6 +115,7 @@ export default function JobCard({ job, onCancel, onDismiss }: Props) {
                   <a
                     href={file.download_url}
                     download={file.filename}
+                    aria-label={`Download ${file.filename}`}
                     className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-surface/70 px-3 py-2 text-sm transition hover:border-accent"
                   >
                     <span className="truncate">{file.filename}</span>
