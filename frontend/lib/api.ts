@@ -72,6 +72,9 @@ export interface SourceDescriptor {
   supports_info: boolean;
   requires_operator_credentials: boolean;
   note: string | null;
+  /** False when this instance is missing something the source needs. */
+  configured: boolean;
+  setup_hint: string | null;
 }
 
 export class ApiError extends Error {}

@@ -83,16 +83,38 @@ Every value is an environment variable on the backend, and every one has a defau
 | `ENABLE_GENERIC_SOURCE` | `true` | Whether unknown links fall through to yt-dlp |
 | `PROXY` | — | Outbound proxy for all downloaders |
 | `COOKIES_FILE` | — | Netscape `cookies.txt` handed to yt-dlp |
-| `INSTAGRAM_USERNAME` / `INSTAGRAM_SESSION_FILE` | — | Optional operator session, see below |
+| `INSTAGRAM_USERNAME` | — | Operator account used for every Instagram request |
+| `INSTAGRAM_SESSION_FILE` | — | Session created offline, or where to cache one |
+| `INSTAGRAM_PASSWORD` | — | Alternative to a session file, see below |
 
 ### About Instagram credentials
 
-This service **never asks a visitor to log in**, and no password reaches the API. By default the
-Instagram source runs anonymously, which reaches public posts, reels and carousels.
+This service **never asks a visitor to log in**, and no visitor password reaches the API.
 
-An operator running a private instance may create a session on their own machine
-(`instaloader --login=<user>`) and point `INSTAGRAM_SESSION_FILE` at it. That session is then used
-for every request on that instance — so only do it on an instance you control and trust.
+Instagram now refuses anonymous metadata requests almost everywhere, so the source needs a login to
+do anything. The operator configures one login for the whole instance, in either of two ways:
+
+```bash
+# Preferred: make a session offline, keep secrets out of the environment
+instaloader --login=<your-username>   # writes ~/.config/instaloader/session-<user>
+```
+
+```yaml
+# docker-compose.yml — point at that session
+environment:
+  INSTAGRAM_USERNAME: your-username
+  INSTAGRAM_SESSION_FILE: /data/instagram.session
+volumes:
+  - ~/.config/instaloader/session-your-username:/data/instagram.session:ro
+```
+
+Or set `INSTAGRAM_USERNAME` and `INSTAGRAM_PASSWORD` and the backend logs in once at startup,
+caching the session to `INSTAGRAM_SESSION_FILE` if you set one so restarts do not re-authenticate.
+
+Either way it is the *operator's* account doing every request. Use a throwaway one: Instagram bans
+accounts for automated access, and a public instance will get it rate-limited fast. The frontend
+reads `/api/sources` and greys Instagram out with a setup hint when no login is configured, so
+nobody pastes a link into a dead end.
 
 ---
 

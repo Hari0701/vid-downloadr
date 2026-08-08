@@ -69,9 +69,6 @@ export default function Home() {
     setJobs((current) => current.filter((job) => job.id !== id));
   }, []);
 
-  const named = sources.filter((source) => source.domains.length > 0);
-  const hasGeneric = sources.some((source) => source.name === "generic");
-
   return (
     <>
       <div className="aurora" aria-hidden />
@@ -87,24 +84,6 @@ export default function Home() {
           </p>
         ) : (
           <DownloadForm sources={sources} onSubmit={submit} />
-        )}
-
-        {named.length > 0 && (
-          <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-muted">
-            {named.map((source) => (
-              <span
-                key={source.name}
-                className="rounded-full border border-edge bg-panel/50 px-2.5 py-1"
-              >
-                {source.label}
-              </span>
-            ))}
-            {hasGeneric && (
-              <span className="rounded-full border border-edge bg-panel/50 px-2.5 py-1">
-                + 1,000 more via yt-dlp
-              </span>
-            )}
-          </div>
         )}
 
         {jobs.length > 0 && (
